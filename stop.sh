@@ -14,8 +14,8 @@ pkill -f "monitor/server.py" 2>/dev/null && echo "✅ Monitor parado" || echo "�
 # Parar Ollama
 pkill ollama 2>/dev/null && echo "✅ Ollama parado" || echo "⚪ Ollama no estaba activo"
 
-# Parar Dolt
-pkill dolt 2>/dev/null && echo "✅ Dolt parado" || echo "⚪ Dolt no estaba activo"
+# Parar Dolt (siempre el último)
+cd ~/research-engine && /home/oracle/go/bin/bd dolt stop 2>/dev/null && echo "✅ Dolt parado" || echo "⚪ Dolt no estaba activo"
 
 echo ""
 echo "🏁 Research Engine detenido completamente."

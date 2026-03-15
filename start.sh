@@ -12,6 +12,11 @@ rm -f /home/oracle/research-engine/informe-final.md
 rm -f /home/oracle/research-engine/informe-critico.md
 
 # Arrancar Ollama
+echo "🗄️  Arrancando Dolt..."
+cd ~/research-engine && /home/oracle/go/bin/bd dolt start 2>/dev/null
+sleep 2
+echo "✅ Dolt listo"
+
 echo "🚀 Arrancando Ollama..."
 ollama serve > /tmp/ollama.log 2>&1 &
 sleep 3
