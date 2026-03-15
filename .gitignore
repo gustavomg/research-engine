@@ -1,0 +1,22 @@
+# Findings e informes generados
+findings/
+informe-final.md
+informe-critico.md
+
+# Beads internos
+.beads/dolt/
+.beads/interactions.jsonl
+.beads/dolt-monitor.pid.lock
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.local/
+
+# Logs
+*.log
+/tmp/
+
+# Node
+node_modules/

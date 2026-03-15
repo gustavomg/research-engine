@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Research Engine Monitor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0d1117; color: #c9d1d9; font-family: 'Segoe UI', monospace; padding: 20px; }
+        h1 { color: #58a6ff; margin-bottom: 20px; font-size: 1.4em; }
+        h2 { color: #8b949e; font-size: 0.9em; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+        .timestamp { color: #8b949e; font-size: 0.8em; margin-bottom: 20px; }
+        .bead { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; margin-bottom: 8px; background: #0d1117; }
+        .bead .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .dot.open { background: #8b949e; }
+        .dot.in_progress { background: #f0883e; animation: pulse 1s infinite; }
+        .dot.closed { background: #3fb950; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .bead .id { color: #58a6ff; font-size: 0.75em; font-family: monospace; }
+        .bead .titulo { font-size: 0.85em; color: #c9d1d9; }
+        .finding { padding: 8px; border-radius: 6px; margin-bottom: 8px; background: #0d1117; border-left: 3px solid #58a6ff; }
+        .finding .nombre { color: #58a6ff; font-size: 0.8em; font-weight: bold; }
+        .finding .meta { color: #8b949e; font-size: 0.75em; margin: 4px 0; }
+        .finding .preview { color: #8b949e; font-size: 0.78em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .informe { background: #0d1117; border-radius: 6px; padding: 12px; font-size: 0.8em; line-height: 1.6; white-space: pre-wrap; max-height: 300px; overflow-y: auto; border-left: 3px solid #3fb950; }
+        .empty { color: #8b949e; font-size: 0.85em; font-style: italic; }
+        .agent { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; margin-bottom: 8px; background: #0d1117; }
+        .agent-name { font-size: 0.85em; font-weight: bold; }
+        .agent-status { font-size: 0.75em; color: #8b949e; }
+        .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.7em; font-weight: bold; }
+        .badge.waiting { background: #21262d; color: #8b949e; }
+        .badge.working { background: #f0883e33; color: #f0883e; }
+        .badge.done { background: #3fb95033; color: #3fb950; }
+    </style>
+</head>
+<body>
+    <h1>🔬  Monitor de Agentes de Investigación</h1>
+    <div class="timestamp" id="timestamp">Actualizando...</div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>🤖 Agentes</h2>
+            <div id="agentes"></div>
+        </div>
+        <div class="card">
+            <h2>📌 Tareas en Beads</h2>
+            <div id="beads"></div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>📄 Ayazgos generados</h2>
+            <div id="findings"></div>
+        </div>
+        <div class="card">
+            <h2>📊 Informe final</h2>
+            <div id="informe"></div>
+        </div>
+    </div>
+
+    <script>
+        function inferAgentStatus(beads, findings) {
+            const agents = [
+                { name: "Orchestrator", id: "orchestrator" },
+                { name: "Researcher-1", id: "researcher-1" },
+                { name: "Researcher-2", id: "researcher-2" },
+                { name: "Synthesizer",  id: "synthesizer"  }
+            ];
+
+            return agents.map(agent => {
+                let status = "waiting";
+                let label = "En espera";
+
+                if (agent.id === "orchestrator") {
+                    status = beads.length > 0 ? "done" : "waiting";
+                    label = beads.length > 0 ? "Tareas creadas" : "Esperando tema";
+                } else if (agent.id === "researcher-1") {
+                    const f = findings.find(f => f.nombre.includes("researcher-1"));
+                    const b = beads.find(b => b.titulo.includes("1") || b.id.includes("0"));
+                    if (f) { status = "done"; label = "Finalizado"; }
+                    else if (b && b.status === "open") { status = "working"; label = "Investigando..."; }
+                    else { label = "En espera"; }
+                } else if (agent.id === "researcher-2") {
+                    const f = findings.find(f => f.nombre.includes("researcher-2"));
+                    if (f) { status = "done"; label = "Finalizado"; }
+                    else if (beads.length > 0) { status = "working"; label = "Investigando..."; }
+                    else { label = "En espera"; }
+                } else if (agent.id === "synthesizer") {
+                    if (findings.length >= 2) { status = "working"; label = "Sintetizando..."; }
+                    if (document.getElementById("informe").innerText.includes("INFORME")) {
+                        status = "done"; label = "Informe listo";
+                    }
+                }
+                return { ...agent, status, label };
+            });
+        }
+
+        async function update() {
+            try {
+                const res = await fetch("/api/status");
+                const data = await res.json();
+
+                document.getElementById("timestamp").textContent = "Última actualización: " + data.timestamp;
+
+                // Agentes
+                const agents = inferAgentStatus(data.beads, data.findings);
+                document.getElementById("agentes").innerHTML = agents.map(a => `
+                    <div class="agent">
+                        <div class="dot ${a.status === 'done' ? 'closed' : a.status === 'working' ? 'in_progress' : 'open'}"></div>
+                        <div>
+                            <div class="agent-name">${a.name}</div>
+                            <div class="agent-status">${a.label}</div>
+                        </div>
+                        <span class="badge ${a.status}">${a.status === 'done' ? '✓ Listo' : a.status === 'working' ? '⚙ Activo' : '○ Espera'}</span>
+                    </div>`).join("");
+
+                // Beads
+                document.getElementById("beads").innerHTML = data.beads.length
+                    ? data.beads.map(b => `
+                        <div class="bead">
+                            <div class="dot ${b.status}"></div>
+                            <div>
+                                <div class="id">${b.id}</div>
+                                <div class="titulo">${b.titulo}</div>
+                            </div>
+                        </div>`).join("")
+                    : '<div class="empty">Sin tareas aún</div>';
+
+                // Findings
+                document.getElementById("findings").innerHTML = data.findings.length
+                    ? data.findings.map(f => `
+                        <div class="finding">
+                            <div class="nombre">${f.nombre}</div>
+                            <div class="meta">${f.modificado} · ${f.size}</div>
+                            <div class="preview">${f.preview}</div>
+                        </div>`).join("")
+                    : '<div class="empty">Sin findings aún</div>';
+
+                // Informe
+                document.getElementById("informe").innerHTML = data.informe
+                    ? `<div class="informe">${data.informe}</div>`
+                    : '<div class="empty">Esperando al Synthesizer...</div>';
+
+            } catch(e) {
+                document.getElementById("timestamp").textContent = "Error conectando con el servidor";
+            }
+        }
+
+        update();
+        setInterval(update, 3000); // refresco cada 3 segundos
+    </script>
+</body>
+</html>
