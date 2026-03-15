@@ -29,3 +29,9 @@ cd research-engine && ./start.sh
 - Node.js 20+
 - Go 1.24+
 - Ollama
+
+## Arquitectura
+
+![Arquitectura del sistema](docs/architecture.svg)
+
+Ver diagrama interactivo: [docs/architecture.html](docs/architecture.html)
