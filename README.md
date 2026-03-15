@@ -32,6 +32,6 @@ cd research-engine && ./start.sh
 
 ## Arquitectura
 
-![Arquitectura del sistema](docs/architecture.svg)
+<img src="docs/architecture.svg" width="900" alt="Arquitectura del sistema">
 
 Ver diagrama interactivo: [docs/architecture.html](docs/architecture.html)
