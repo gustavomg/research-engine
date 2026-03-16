@@ -2,6 +2,6 @@
   "database": "dolt",
   "backend": "dolt",
   "dolt_mode": "server",
-  "dolt_database": "research_engine",
-  "project_id": "91d4825a-d102-4f9c-abee-cab05fa92daf"
+  "dolt_database": "research_engine_api_llm",
+  "project_id": "d2be9c95-5f47-46bc-8258-90fa95a2da97"
 }
