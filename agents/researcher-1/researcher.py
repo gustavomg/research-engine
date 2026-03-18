@@ -1,26 +1,20 @@
-import requests
 import subprocess
 import sys
 import os
 import re
 import time
 from datetime import datetime
-sys.path.insert(0, '/home/oracle/research-engine')
+from dotenv import load_dotenv
+load_dotenv()
+sys.path.insert(0, '/home/oracle/research-engine-api-llm')
+from tools.llm_client import ask_llm
 from tools.web_search import search_web, format_results
+from tools.memory_store import search_memory, save_finding, format_memory
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "qwen2.5:7b"
 BEADS_BIN = "/home/oracle/go/bin/bd"
-BEADS_DIR = "/home/oracle/research-engine"
+BEADS_DIR = "/home/oracle/research-engine-api-llm"
 POLL_INTERVAL = 5
-
-def ask_ollama(prompt):
-    response = requests.post(OLLAMA_URL, json={
-        "model": MODEL,
-        "prompt": prompt,
-        "stream": False
-    }, timeout=300)
-    return response.json()["response"]
+DELAY_START = 0
 
 def beads_list():
     result = subprocess.run(
@@ -30,11 +24,10 @@ def beads_list():
     return result.stdout
 
 def beads_close(bead_id):
-    result = subprocess.run(
+    subprocess.run(
         [BEADS_BIN, "close", bead_id],
         capture_output=True, text=True, cwd=BEADS_DIR
     )
-    return result.stdout
 
 def extraer_tarea(researcher_id, lista):
     lineas = lista.strip().split("\n")
@@ -47,7 +40,12 @@ def extraer_tarea(researcher_id, lista):
 
 def main():
     researcher_id = sys.argv[1] if len(sys.argv) > 1 else "1"
-    print(f"\n🔬 Researcher-{researcher_id} en espera. Monitorizando Beads cada {POLL_INTERVAL}s...")
+
+    if DELAY_START > 0:
+        print(f"\n⏱️  Desfase de {DELAY_START}s...")
+        time.sleep(DELAY_START)
+
+    print(f"\n🔬 Researcher-{researcher_id} monitorizando Beads cada {POLL_INTERVAL}s...")
 
     while True:
         lista = beads_list()
@@ -59,45 +57,57 @@ def main():
 
     print(f"\n📌 Tarea detectada {bead_id}: {tarea}")
 
-    # Búsqueda web real
     print("\n🌐 Buscando fuentes web...")
     query = re.sub(r'^.*SUBTEMA-\d+:\s*', '', tarea).strip()[:100]
+
+    # Consultar memoria semántica
+    print("\n🧠 Consultando memoria de investigaciones previas...")
+    memoria = search_memory(query, top_k=3)
+    contexto_previo = format_memory(memoria)
+    if memoria:
+        print(f"   Encontrados {len(memoria)} findings relevantes en memoria")
+    else:
+        print("   Sin contexto previo relevante")
+
     web_results = search_web(query, max_results=3)
     web_context = format_results(web_results)
 
-    print(f"\n⚙️  Investigando con {MODEL}...")
+    print(f"\n⚙️  Investigando con Qwen2.5-7B via HuggingFace...")
 
-    prompt = f"""Eres un investigador experto. Investiga exhaustivamente el siguiente tema:
+    prompt = f"""You are an expert researcher. Research this topic thoroughly:
 
-TEMA: {tarea}
+TOPIC: {tarea}
 
-FUENTES WEB REALES ENCONTRADAS:
-{web_context}
+{contexto_previo}
+WEB SOURCES:
+{web_context[:1500]}
 
-Basándote en las fuentes anteriores y tu conocimiento, produce un informe con:
-1. RESUMEN EJECUTIVO (3-5 líneas)
-2. PUNTOS CLAVE (mínimo 5 puntos detallados)
-3. CONTEXTO Y ANTECEDENTES
-4. TENDENCIAS ACTUALES (basadas en las fuentes)
-5. IMPLICACIONES Y CONCLUSIONES
-6. FUENTES UTILIZADAS (lista las URLs)
-7. LAGUNAS DETECTADAS
+Write a structured report with:
+1. EXECUTIVE SUMMARY (3-5 lines)
+2. KEY POINTS (minimum 5)
+3. CONTEXT AND BACKGROUND
+4. CURRENT TRENDS
+5. CONCLUSIONS
+6. SOURCES USED
+7. GAPS DETECTED
 
-Sé exhaustivo. Cita las fuentes cuando uses información de ellas."""
+Be exhaustive. Cite sources when using their information. IMPORTANT: Write the entire report in Spanish."""
 
-    hallazgos = ask_ollama(prompt)
+    hallazgos = ask_llm(prompt)
 
     os.makedirs(f"{BEADS_DIR}/findings", exist_ok=True)
     filename = f"{BEADS_DIR}/findings/researcher-{researcher_id}-{bead_id}.md"
     with open(filename, "w") as f:
-        f.write(f"# Hallazgos Researcher-{researcher_id}\n")
-        f.write(f"**Tarea:** {tarea}\n")
-        f.write(f"**Fecha:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
-        f.write(f"**Modelo:** {MODEL}\n\n")
-        f.write(f"## Fuentes web consultadas\n{web_context[:500]}\n\n")
+        f.write(f"# Findings Researcher-{researcher_id}\n")
+        f.write(f"**Task:** {tarea}\n")
+        f.write(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
+        f.write(f"**Model:** Qwen/Qwen2.5-7B-Instruct via HuggingFace\n\n")
+        f.write(f"## Web Sources\n{web_context[:500]}\n\n")
         f.write(hallazgos)
 
     print(f"\n💾 Hallazgos guardados en: {filename}")
+    save_finding(query, hallazgos[:2000], {"researcher": researcher_id, "bead_id": bead_id})
+    print("🧠 Finding guardado en memoria semántica")
     beads_close(bead_id)
     print(f"✅ Tarea {bead_id} cerrada.")
 

@@ -1,20 +1,16 @@
-import requests
 import subprocess
+import sys
+sys.path.insert(0, "/home/oracle/research-engine-api-llm")
+import sys
+sys.path.insert(0, "/home/oracle/research-engine-api-llm")
 import json
 import os
+from dotenv import load_dotenv
+load_dotenv()
+from tools.llm_client import ask_llm
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "qwen2.5:7b"
 BEADS_BIN = "/home/oracle/go/bin/bd"
-BEADS_DIR = "/home/oracle/research-engine"
-
-def ask_ollama(prompt):
-    response = requests.post(OLLAMA_URL, json={
-        "model": MODEL,
-        "prompt": prompt,
-        "stream": False
-    }, timeout=300)
-    return response.json()["response"]
+BEADS_DIR = "/home/oracle/research-engine-api-llm"
 
 def beads_create(title, description):
     result = subprocess.run(
@@ -22,21 +18,20 @@ def beads_create(title, description):
         capture_output=True, text=True, cwd=BEADS_DIR
     )
     print(result.stdout)
-    if result.stderr:
-        print("ERR:", result.stderr)
     return result.stdout
 
 def main():
     tema = input("\n🔍 Introduce el tema de investigación: ")
 
     print("\n⚙️  Descomponiendo el tema en subtemas...")
-    prompt = f"""Dado el tema de investigación: "{tema}"
+    prompt = f"""Given the research topic: "{tema}"
 
-Descompónlo en exactamente 2 subtemas distintos y complementarios.
-Responde SOLO con este formato JSON, sin explicaciones:
-{{"subtema1": "titulo y descripcion del subtema 1", "subtema2": "titulo y descripcion del subtema 2"}}"""
+Decompose it into exactly 2 distinct and complementary subtopics.
+IMPORTANT: Respond ONLY in English.
+Respond ONLY with this JSON format, no explanations:
+{{"subtema1": "title and description of subtopic 1", "subtema2": "title and description of subtopic 2"}}"""
 
-    respuesta = ask_ollama(prompt)
+    respuesta = ask_llm(prompt)
     respuesta = respuesta.strip()
     start = respuesta.find("{")
     end = respuesta.rfind("}") + 1
@@ -50,8 +45,6 @@ Responde SOLO con este formato JSON, sin explicaciones:
     beads_create(f"SUBTEMA-2: {subtemas['subtema2'][:50]}", subtemas['subtema2'])
 
     print("\n✅ Tareas creadas en Beads.")
-    print("   Panel Researcher-1: python3 ~/research-engine/agents/researcher-1/researcher.py 1")
-    print("   Panel Researcher-2: python3 ~/research-engine/agents/researcher-2/researcher.py 2")
 
 if __name__ == "__main__":
     main()

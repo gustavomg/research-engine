@@ -1,12 +1,16 @@
 # Research Engine Distribuido
 
-Sistema multiagente de investigación 100% local y sin coste.
+Sistema multiagente de investigación (LLM en local con OLLAMA)
+
+Este es el primer proyecto de una serie de proyecto que tienen como objetivo la investigación en el campo de Agentes
+
+En este primer proyecto se pretende solucionar un problema no deterministico mediante el uso de agentes.
 
 ## Stack
 - **Ollama + qwen2.5:7b** — LLM local (sin coste).Ollama es una herramienta de código abierto diseñada para ejecutar Grandes Modelos de Lenguaje (LLMs) como Llama 3, Mistral o Gemma directamente en tu ordenador (localmente), sin depender de la nube. 
 - **Beads + Dolt** — coordinación y trazabilidad entre agentes. Dolt es una base de datos SQL relacional que permite el control de versiones de los datos y esquemas de manera similar a como Git gestiona el código fuente. Se describe frecuentemente como "Git para datos"
 - **Playwright** — Los agentes de investigación buscan en web real (arXiv, Wikipedia)
-- **tmux** — Para lanzar y ver terminales de ejecución paralela de agentes
+- **tmux** — Para lanzar y ver terminales de ejecución paralela de agentes. Usa ctl+b y luego la flecha para desplazarte
 - **Flask** — Usado para el dashboard de monitorización en tiempo real
 
 ## Agentes

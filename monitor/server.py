@@ -4,11 +4,14 @@ import os
 import glob
 import re
 from datetime import datetime
+import sys
+sys.path.insert(0, "/home/oracle/research-engine-api-llm")
+from tools.memory_store import memory_stats
 
 app = Flask(__name__)
 
 BEADS_BIN = "/home/oracle/go/bin/bd"
-BEADS_DIR = "/home/oracle/research-engine"
+BEADS_DIR = "/home/oracle/research-engine-api-llm"
 
 def get_beads():
     result = subprocess.run(
@@ -64,3 +67,11 @@ def status():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=False)
+
+@app.route("/api/memory")
+def memory():
+    try:
+        count = memory_stats()
+        return jsonify({"total_findings": count})
+    except Exception as e:
+        return jsonify({"total_findings": 0, "error": str(e)})

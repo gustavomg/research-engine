@@ -1,24 +1,17 @@
-import requests
 import subprocess
 import os
-import glob
 import time
 import re
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()
+import sys
+sys.path.insert(0, '/home/oracle/research-engine-api-llm')
+from tools.llm_client import ask_llm
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "qwen2.5:7b"
 BEADS_BIN = "/home/oracle/go/bin/bd"
-BEADS_DIR = "/home/oracle/research-engine"
+BEADS_DIR = "/home/oracle/research-engine-api-llm"
 POLL_INTERVAL = 5
-
-def ask_ollama(prompt):
-    response = requests.post(OLLAMA_URL, json={
-        "model": MODEL,
-        "prompt": prompt,
-        "stream": False
-    })
-    return response.json()["response"]
 
 def beads_create(title, body):
     result = subprocess.run(
@@ -26,16 +19,13 @@ def beads_create(title, body):
         capture_output=True, text=True, cwd=BEADS_DIR
     )
     match = re.search(r'(research-engine-\w+)', result.stdout)
-    bead_id = match.group(1) if match else None
-    print(f"📌 Bead creado: {bead_id}")
-    return bead_id
+    return match.group(1) if match else None
 
 def beads_close(bead_id, nota):
     subprocess.run(
         [BEADS_BIN, "close", bead_id, "--body", nota],
         capture_output=True, text=True, cwd=BEADS_DIR
     )
-    print(f"✅ Bead {bead_id} cerrado.")
 
 def beads_comment(bead_id, comentario):
     subprocess.run(
@@ -43,101 +33,63 @@ def beads_comment(bead_id, comentario):
         capture_output=True, text=True, cwd=BEADS_DIR
     )
 
-def informe_listo():
-    return os.path.exists(f"{BEADS_DIR}/informe-final.md")
-
-def leer_informe():
-    with open(f"{BEADS_DIR}/informe-final.md", "r") as f:
-        return f.read()
-
 def main():
     print(f"\n🔍 Critic en espera. Monitorizando informe-final.md cada {POLL_INTERVAL}s...")
 
     while True:
-        if informe_listo():
+        if os.path.exists(f"{BEADS_DIR}/informe-final.md"):
             print("\n✅ Informe final detectado. Iniciando análisis crítico...")
             break
         print(f"⏳ [{datetime.now().strftime('%H:%M:%S')}] Esperando al Synthesizer...")
         time.sleep(POLL_INTERVAL)
 
-    # Registrar inicio en Beads
     bead_id = beads_create(
-        "CRITIC: Evaluación de calidad del informe",
-        f"El Critic ha iniciado la evaluación crítica del informe final. Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        "CRITIC: Quality evaluation",
+        f"Critic started. Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     )
 
-    informe = leer_informe()
+    with open(f"{BEADS_DIR}/informe-final.md", "r") as f:
+        informe = f.read()
 
     if bead_id:
-        beads_comment(bead_id, "Informe leído. Analizando sesgos, lagunas y afirmaciones sin soporte.")
+        beads_comment(bead_id, "Report read. Analyzing quality with Qwen2.5-7B.")
 
-    print("\n⚙️  Analizando calidad del informe con Ollama...")
+    print("\n⚙️  Analizando calidad con Qwen2.5-7B...")
 
-    prompt = f"""Eres un crítico académico riguroso e imparcial. Tu misión es evaluar la calidad 
-de este informe de investigación con máximo rigor intelectual.
+    prompt = f"""You are a rigorous academic critic. Evaluate this research report:
 
-INFORME A EVALUAR:
-{informe}
+{informe[:3000]}
 
-Produce un INFORME CRÍTICO con esta estructura exacta:
+Produce a CRITICAL REPORT with:
+## 1. GLOBAL SCORE (1-10 with justification)
+## 2. DETECTED BIASES
+## 3. UNSUPPORTED CLAIMS
+## 4. CRITICAL GAPS
+## 5. INTERNAL CONTRADICTIONS
+## 6. REPORT STRENGTHS
+## 7. PRIORITY FOLLOW-UP QUESTIONS (top 5)
+## 8. IMPROVEMENT RECOMMENDATIONS
 
-## 1. PUNTUACIÓN GLOBAL
-Asigna una puntuación del 1 al 10 y justifícala en 2-3 líneas.
+Be brutally honest. IMPORTANT: Write the entire report in Spanish."""
 
-## 2. SESGOS DETECTADOS
-Lista cada sesgo identificado con:
-- Tipo de sesgo (confirmación, selección, cultural, temporal...)
-- Dónde aparece en el informe
-- Impacto en las conclusiones
+    critica = ask_llm(prompt)
 
-## 3. AFIRMACIONES SIN SOPORTE
-Lista afirmaciones que necesitan evidencia o fuentes que no están respaldadas.
-Para cada una indica qué tipo de evidencia faltaría.
-
-## 4. LAGUNAS CRÍTICAS
-Aspectos importantes del tema que el informe ignora completamente.
-Ordénalos de mayor a menor impacto en la validez del informe.
-
-## 5. CONTRADICCIONES INTERNAS
-Puntos donde el informe se contradice a sí mismo o es inconsistente.
-
-## 6. FORTALEZAS DEL INFORME
-Qué hace bien el informe. Sé específico y justo.
-
-## 7. PREGUNTAS DE SEGUIMIENTO PRIORITARIAS
-Lista las 5 preguntas más importantes que quedan sin responder.
-Ordénalas por prioridad de investigación.
-
-## 8. RECOMENDACIONES DE MEJORA
-Acciones concretas para mejorar el informe, ordenadas por impacto.
-
-Sé brutalmente honesto. La utilidad del informe final depende de tu rigor."""
-
-    critica = ask_ollama(prompt)
-
-    # Guardar informe crítico
     filename = f"{BEADS_DIR}/informe-critico.md"
     with open(filename, "w") as f:
-        f.write(f"# INFORME CRÍTICO DE CALIDAD\n")
-        f.write(f"**Fecha:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
-        f.write(f"**Evaluado por:** Critic Agent\n\n")
+        f.write(f"# CRITICAL QUALITY REPORT\n")
+        f.write(f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
+        f.write(f"**Model:** Qwen/Qwen2.5-7B-Instruct via HuggingFace\n\n")
         f.write(critica)
+
+    score_match = re.search(r'(\d+)/10', critica)
+    score = score_match.group(0) if score_match else "ver informe"
 
     print(f"\n💾 Informe crítico guardado en: {filename}")
 
-    # Extraer puntuación para el bead
-    score_match = re.search(r'(\d+)/10|(\d+)\s*/\s*10', critica)
-    score = score_match.group(0) if score_match else "ver informe"
-
     if bead_id:
-        beads_comment(bead_id, f"Análisis completado. Puntuación detectada: {score}")
-        beads_close(
-            bead_id,
-            f"Evaluación crítica completada.\nPuntuación: {score}\nInforme en: {filename}\nFecha: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-        )
+        beads_close(bead_id, f"Evaluation complete. Score: {score}. File: {filename}")
 
     print(f"\n🏁 Ciclo de calidad cerrado. Puntuación: {score}")
-    print(f"   Lee el análisis en: {filename}")
 
 if __name__ == "__main__":
     main()
