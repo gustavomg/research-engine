@@ -2,7 +2,7 @@
 
 Sistema multiagente de investigación (LLM en local con OLLAMA)
 
-Este es el primer proyecto de una serie de proyecto que tienen como objetivo la investigación en el campo de Agentes
+Este es el primer proyecto de una serie de proyectos que tienen como objetivo la investigación en el campo de Agentes
 
 En este primer proyecto se pretende solucionar un problema no deterministico mediante el uso de agentes.
 
