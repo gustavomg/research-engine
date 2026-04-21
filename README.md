@@ -39,3 +39,73 @@ cd research-engine && ./start.sh
 <img src="docs/architecture.svg" width="900" alt="Arquitectura del sistema">
 
 Ver diagrama interactivo: [docs/architecture.html](docs/architecture.html)
+
+---
+
+## Control de calidad y resiliencia
+
+### Monitor de invariantes
+
+El monitor de invariantes corre en paralelo al stack y detecta violaciones en tiempo real sobre 7 invariantes del sistema (I1, I2, I5, I6, I7, I9, I13).
+
+Se arranca automáticamente con `./start.sh`. Para ejecutarlo manualmente:
+
+```bash
+# Ejecución continua (cada 15s)
+python3 chaos/invariant_monitor.py
+
+# Ejecución única para diagnóstico
+python3 chaos/invariant_monitor.py --once
+
+# Ver violaciones registradas
+cat chaos/logs/invariant_violations.jsonl
+```
+
+### Chaos Orchestrator
+
+El Chaos Orchestrator inyecta fallos deliberados para validar la resiliencia del sistema. **No ejecutar con el stack en producción.**
+
+```bash
+# Parar el stack antes de los experimentos
+./stop.sh
+
+# Experimento 1 — timeout en capa LLM (valida Circuit Breaker)
+python3 chaos/chaos_orchestrator.py --exp 1
+
+# Experimento 2 — caída de Dolt (valida detección de fallo en Beads)
+python3 chaos/chaos_orchestrator.py --exp 2
+
+# Experimento 3 — latencia extrema en búsqueda web (valida degradación graceful)
+python3 chaos/chaos_orchestrator.py --exp 3
+
+# Todos los experimentos en secuencia
+python3 chaos/chaos_orchestrator.py --all
+
+# Ver reportes generados
+ls chaos/logs/
+```
+
+### Circuit Breaker
+
+La capa LLM está protegida por un Circuit Breaker con tres estados:
+
+| Estado | Descripción |
+|---|---|
+| CLOSED | Funcionamiento normal |
+| OPEN | Circuito cortado — rechaza llamadas tras 3 fallos |
+| HALF_OPEN | Probando recuperación — permite llamadas de prueba |
+
+Parámetros: `failure_threshold=3`, `recovery_timeout=30s`, `success_threshold=2`.
+
+### Suite de tests
+
+```bash
+# Ejecutar suite completa
+cd ~/research-engine-api-llm && python3 -m pytest tests/ -v
+
+# Ejecutar solo una feature
+python3 -m pytest tests/ -v -k "Orchestrator"
+
+# Ver baseline de fallos
+cat tests/baseline_red.log
+```
